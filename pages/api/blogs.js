@@ -1,5 +1,5 @@
 import { mongooseConnect } from "@/lib/mongoose";
-import { Blog } from "@/models/Blog"; 
+import { Blog } from "@/models/Blog";
 
 export default async function handler(req, res) {
   await mongooseConnect();
@@ -40,7 +40,7 @@ export default async function handler(req, res) {
           }
           return res.status(200).json(blog);
         } else {
-          const blogs = await Blog.find().sort({ createdAt: -1 }); // ✅ better than .reverse()
+          const blogs = await Blog.find().sort({ createdAt: -1 });
           return res.status(200).json(blogs);
         }
       } catch (error) {

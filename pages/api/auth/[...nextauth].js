@@ -1,50 +1,59 @@
-import NextAuth from 'next-auth'
-import connectToDtabase from '@/lib/mongodb'
-import CredentialsProvider from 'next-auth/providers/credentials'
+import NextAuth from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { mongooseConnect } from "@/lib/mongoose";
+import { Profile } from "@/models/Profile";
+import { compare } from "bcryptjs";
 
-export default NextAuth({
+export const authOptions = {
+  session: {
+    strategy: "jwt",
+  },
   providers: [
     CredentialsProvider({
-        // the name of display on the sign in fotm
+      name: "Credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        await mongooseConnect();
 
-        name: 'Credentials',
-        credentials: {
-            email: { label: "Email", type: "email" },
-            password: { label: "Password", type: "password", placeholder: "password" }
-        },
-        async authorize(credentials, req) {
-            const db = await connectToDtabase();
-            const collection = db.collection('admin');
-            const user = await collection.findOne({
-                email: credentials.email,
-            }); if(user && user.password === credentials.password) {
-                return {
-                 id:user._id,email:user.email
-                };
-            }return null;
+        const { email, password } = credentials;
 
+        const user = await Profile.findOne({ email });
+        if (!user) {
+          throw new Error("No user found with this email");
         }
-    })
-       
+
+        const isValid = await compare(password, user.password);
+        if (!isValid) {
+          throw new Error("Incorrect password");
+        }
+
+        return {
+          id: user._id.toString(),
+          email: user.email,
+        };
+      },
+    }),
   ],
-  database: process.env.MONGODB_URI,
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-    
+        token.email = user.email;
       }
       return token;
     },
     async session({ session, token }) {
-      session.user.id = token.id;
-      
+      if (token) {
+        session.user.id = token.id;
+        session.user.email = token.email;
+      }
       return session;
     },
   },
+  secret: process.env.NEXTAUTH_SECRET,
+};
 
-  pages:{
-    signIn: '/auth/signin',
-   
-  }
-})
+export default NextAuth(authOptions);

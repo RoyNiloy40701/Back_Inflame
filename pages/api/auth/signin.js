@@ -12,25 +12,23 @@ export default async function handler(req, res) {
       try {
         const { email, password } = req.body;
 
-        const existingUser = await Profile.findOne({ email });
-        if (existingUser) {
-          return res.status(409).json({ error: "User already exists" });
+        const user = await Profile.findOne({ email });
+        if (!user) {
+          return res.status(404).json({ error: "User Not Found" });
         }
 
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const user = await Profile.create({ email, password: hashedPassword, });
-        return res.status(201).json(user);
+        const passwordMatch = await bcrypt.compare(password, user.password);
+        if (!passwordMatch) {
+          return res.status(401).json({ error: "Invalid password" });
+        }
 
+        return res.status(200).json({ message: "Sign in successful", user });
       } catch (error) {
         return res.status(500).json({ success: false, error: error.message });
       }
-    case "GET":
-      try {
-        const users = await Profile.find();
-        return res.status(200).json({ success: true, users });
-      } catch (error) {
-        return res.status(500).json({ success: false, error: error.message });
-      }
+
+
+
 
     default:
       res.setHeader("Allow", ["GET", "POST", "PUT", "DELETE"]);
